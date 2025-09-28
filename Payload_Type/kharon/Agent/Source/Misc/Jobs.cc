@@ -185,8 +185,10 @@ auto DECLFN Jobs::ExecuteAll( VOID ) -> LONG {
 
             FlagRet = 1;
 
+            this->CurrentUUID = Current->UUID;
             Current->State    = KH_JOB_RUNNING;
             ERROR_CODE Result = Self->Jbs->Execute( Current );
+            this->CurrentUUID = nullptr;
             Current->ExitCode = Result;
             Current->State    = KH_JOB_READY_SEND;
 

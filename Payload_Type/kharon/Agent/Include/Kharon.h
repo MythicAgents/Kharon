@@ -1545,6 +1545,8 @@ public:
     ULONG Count = 0;
     JOBS* List  = nullptr;
 
+    CHAR* CurrentUUID = nullptr;
+
     auto Create(
         _In_ CHAR*   UUID, 
         _In_ PARSER* Parser,

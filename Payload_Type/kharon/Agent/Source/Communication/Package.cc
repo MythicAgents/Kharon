@@ -2,7 +2,7 @@
 
 using namespace Root;
 
-auto DECLFN Package::Base64EncSize(
+auto DECLFN B64Size(
     _In_ SIZE_T inlen
 ) -> SIZE_T {
     if (inlen == 0) return 0;
@@ -16,10 +16,38 @@ auto DECLFN Package::Base64EncSize(
     return ((inlen + padding) / 3) * 4;
 }
 
-auto DECLFN Package::Base64Enc(
-    _In_ const unsigned char* in, 
-    _In_ SIZE_T len
-) -> char* {
+auto DECLFN B64Size(
+    _In_ const CHAR* Input
+) -> SIZE_T {
+    SIZE_T len;
+    SIZE_T ret;
+    SIZE_T i;
+
+    if ( Input == nullptr )
+    return 0;
+
+    len = Str::LengthA( Input );
+    ret = len / 4 * 3;
+
+    for ( i = len; i-- > 0; ) {
+        if ( Input[i] == '=')
+        {
+            ret--;
+        }
+        else {
+            break;
+        }
+    }
+
+    return ret;
+}
+
+auto DECLFN B64Enc(
+    _In_ CHAR*  Input, 
+    _In_ SIZE_T Length
+) -> CHAR* {
+    G_KHARON
+
     INT Base64Invs[80] = { 
         62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58,
         59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5,
@@ -31,34 +59,34 @@ auto DECLFN Package::Base64Enc(
     
     const char B64Char[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     
-    if (in == NULL || len == 0) return NULL;
+    if ( Input == nullptr || Length == 0) return NULL;
     
-    if (len > SIZE_MAX - 3) return NULL;
+    if ( Length > SIZE_MAX - 3) return NULL;
     
-    SIZE_T elen = Base64EncSize(len);
+    SIZE_T elen = B64Size( Length );
     if (elen == 0) return NULL;
     
-    char* out = (char*)hAlloc(elen + 1);
+    char* out = (CHAR*)hAlloc( elen + 1 );
     if (!out) return NULL;
     
     out[elen] = '\0'; 
     
     SIZE_T i, j;
-    for (i = 0, j = 0; i < len; i += 3, j += 4) {
-        UINT32 v = in[i];
-        v = (i + 1 < len) ? (v << 8) | in[i + 1] : v << 8;
-        v = (i + 2 < len) ? (v << 8) | in[i + 2] : v << 8;
+    for (i = 0, j = 0; i < Length; i += 3, j += 4) {
+        UINT32 v = Input[i];
+        v = (i + 1 < Length) ? (v << 8) | Input[i + 1] : v << 8;
+        v = (i + 2 < Length) ? (v << 8) | Input[i + 2] : v << 8;
         
         out[j]     = B64Char[(v >> 18) & 0x3F];
         out[j + 1] = B64Char[(v >> 12) & 0x3F];
         
-        if (i + 1 < len) {
+        if ( i + 1 < Length ) {
             out[j + 2] = B64Char[(v >> 6) & 0x3F];
         } else {
             out[j + 2] = '=';
         }
         
-        if (i + 2 < len) {
+        if ( i + 2 < Length ) {
             out[j + 3] = B64Char[v & 0x3F];
         } else {
             out[j + 3] = '=';
@@ -68,98 +96,20 @@ auto DECLFN Package::Base64Enc(
     return out;
 }
 
-auto DECLFN Package::Base64DecSize(
-    _In_ const char* in
-) -> SIZE_T {
-    SIZE_T len;
-    SIZE_T ret;
-    SIZE_T i;
-
-    if (in == NULL)
-    return 0;
-
-    len = Str::LengthA(in);
-    ret = len / 4 * 3;
-
-    for (i = len; i-- > 0; )
-    {
-    if (in[i] == '=')
-    {
-        ret--;
-    }
-    else {
-        break;
-    }
-    }
-
-    return ret;
-}
-
-auto DECLFN Package::b64IsValidChar(char c) -> INT {
-    if (c >= '0' && c <= '9') return 1;
-    if (c >= 'A' && c <= 'Z') return 1;
-    if (c >= 'a' && c <= 'z') return 1;
-    if (c == '+' || c == '/') return 1;
-    if (c == '=') return 1; 
+auto DECLFN B64IsValid( CHAR ch ) -> INT {
+    if (ch >= '0' && ch <= '9') return 1;
+    if (ch >= 'A' && ch <= 'Z') return 1;
+    if (ch >= 'a' && ch <= 'z') return 1;
+    if (ch == '+' || ch == '/') return 1;
+    if (ch == '=') return 1; 
     return 0;
 }
 
-auto DECLFN Package::Base64Dec(
-    _In_ const char* in, 
-    _Out_ unsigned char* out, 
-    _In_ SIZE_T outlen
-) -> INT {
-    static const INT Base64Invs[80] = { 
-        62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58,
-        59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5,
-        6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-        21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28,
-        29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
-        43, 44, 45, 46, 47, 48, 49, 50, 51 
-    };
-    
-    if (in == NULL || out == NULL) 
-        { return 0; }
-    
-    SIZE_T len = Str::LengthA(in);
-    if (len == 0 || len % 4 != 0) 
-        { return 0; }
-    
-    SIZE_T required_size = Base64DecSize(in);
-    if (outlen < required_size) 
-        { return 0; }
-    
-    for (SIZE_T i = 0; i < len; i++) {
-        if (!b64IsValidChar(in[i])) 
-            return 0;
-    }
-    
-    for (SIZE_T i = 0, j = 0; i < len; i += 4, j += 3) {
-        if ((in[i] - 43) >= sizeof(Base64Invs)/sizeof(Base64Invs[0]) || 
-            (in[i+1] - 43) >= sizeof(Base64Invs)/sizeof(Base64Invs[0]) ||
-            (in[i+2] != '=' && (in[i+2] - 43) >= sizeof(Base64Invs)/sizeof(Base64Invs[0])) ||
-            (in[i+3] != '=' && (in[i+3] - 43) >= sizeof(Base64Invs)/sizeof(Base64Invs[0]))) {
-            return 0;
-        }
-        
-        UINT32 v = Base64Invs[in[i] - 43];
-        v = (v << 6) | Base64Invs[in[i + 1] - 43];
-        v = (in[i + 2] == '=') ? (v << 6) : (v << 6) | Base64Invs[in[i + 2] - 43];
-        v = (in[i + 3] == '=') ? (v << 6) : (v << 6) | Base64Invs[in[i + 3] - 43];
-        
-        out[j] = (v >> 16) & 0xFF;
-        if (in[i + 2] != '=') {
-            out[j + 1] = (v >> 8) & 0xFF;
-        }
-        if (in[i + 3] != '=') {
-            out[j + 2] = v & 0xFF;
-        }
-    }
-    
-    return 1;
-}
-
-unsigned int DECLFN base64_decode(const char* input, unsigned char* output, unsigned int output_size) {
+auto DECLFN B64Dec(
+    CHAR* Input, 
+    CHAR* Output, 
+    INT32 OutputSize
+) -> ULONG {
     static const unsigned char decode_table[] = {
         0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
         0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -172,34 +122,34 @@ unsigned int DECLFN base64_decode(const char* input, unsigned char* output, unsi
     };
 
     unsigned int input_len = 0;
-    while (input[input_len] != '\0') input_len++;
+    while ( Input[input_len] != '\0') input_len++;
 
     if (input_len % 4 != 0) return 0;
 
     unsigned int output_len = input_len / 4 * 3;
-    if (input[input_len - 1] == '=') output_len--;
-    if (input[input_len - 2] == '=') output_len--;
+    if ( Input[input_len - 1] == '=' ) output_len--;
+    if ( Input[input_len - 2] == '=' ) output_len--;
 
-    if (output_len > output_size) return 0;
+    if ( output_len > OutputSize ) return 0;
 
     unsigned int i = 0, j = 0;
     while (i < input_len) {
-        unsigned char a = input[i] == '=' ? 0 : decode_table[(unsigned char)input[i]];
-        unsigned char b = input[i+1] == '=' ? 0 : decode_table[(unsigned char)input[i+1]];
-        unsigned char c = input[i+2] == '=' ? 0 : decode_table[(unsigned char)input[i+2]];
-        unsigned char d = input[i+3] == '=' ? 0 : decode_table[(unsigned char)input[i+3]];
+        unsigned char a = Input[i]   == '=' ? 0 : decode_table[(unsigned char)Input[i]];
+        unsigned char b = Input[i+1] == '=' ? 0 : decode_table[(unsigned char)Input[i+1]];
+        unsigned char c = Input[i+2] == '=' ? 0 : decode_table[(unsigned char)Input[i+2]];
+        unsigned char d = Input[i+3] == '=' ? 0 : decode_table[(unsigned char)Input[i+3]];
 
         // Converte para 3 bytes
-        output[j++] = (a << 2) | ((b & 0x30) >> 4);
-        if (input[i+2] != '=')
-            output[j++] = ((b & 0x0F) << 4) | ((c & 0x3C) >> 2);
-        if (input[i+3] != '=')
-            output[j++] = ((c & 0x03) << 6) | d;
+        Output[j++] = (a << 2) | ((b & 0x30) >> 4);
+        if ( Input[i+2] != '=' )
+            Output[j++] = ((b & 0x0F) << 4) | ((c & 0x3C) >> 2);
+        if ( Input[i+3] != '=' )
+            Output[j++] = ((c & 0x03) << 6) | d;
 
         i += 4;
     }
 
-    return output_size;
+    return OutputSize;
 }
 
 auto DECLFN Int64ToBuffer( 
@@ -268,7 +218,7 @@ auto DECLFN Package::Int16(
     Package->Length +=  sizeof( UINT16 );
 }
 
-auto DECLFN Package::Int32( 
+auto DECLFN Package::Int32(  
     _In_ PPACKAGE Package, 
     _In_ INT32    dataInt 
 ) -> VOID {
@@ -344,7 +294,7 @@ auto DECLFN Package::PostJobs( VOID ) -> PACKAGE* {
 auto DECLFN Package::NewTask( 
     VOID
 ) -> PPACKAGE {
-    PPACKAGE Package = NULL;
+    PPACKAGE Package = nullptr;
 
     Package          = (PPACKAGE)hAlloc( sizeof( PACKAGE ) );
     Package->Buffer  = PTR( hAlloc( sizeof( BYTE ) ) );
@@ -418,37 +368,35 @@ auto DECLFN Package::Transmit(
         );
     }
 
-    PCHAR FinalPacket = this->Base64Enc((const UCHAR*)EncBuffer, TotalPacketLen);
-    if (!FinalPacket) {
-        Self->Mm->Free(EncBuffer, 0, MEM_RELEASE);
+    PCHAR FinalPacket = B64Enc( A_PTR( EncBuffer ), TotalPacketLen );
+    if ( ! FinalPacket ) {
+        Self->Mm->Free( EncBuffer, 0, MEM_RELEASE );
         return FALSE;
     }
 
     UINT64 FinalPacketLen = this->Base64EncSize(TotalPacketLen);
 
-    if (Self->Tsp->Send(FinalPacket, FinalPacketLen, &Base64Buff, &Base64Size)) {
+    if ( Self->Tsp->Send( FinalPacket, FinalPacketLen, &Base64Buff, &Base64Size ) ) {
         Success = TRUE;
     }
 
-    hFree(FinalPacket);
-    Self->Mm->Free(EncBuffer, 0, MEM_RELEASE);
+    hFree( FinalPacket ); Self->Mm->Free( EncBuffer, 0, MEM_RELEASE );
 
-    if (Success && Base64Buff && Base64Size) {
-        Retsize   = this->Base64DecSize((PCHAR)Base64Buff);
-        RetBuffer = hAlloc(Retsize);
-        if (RetBuffer) {
-            base64_decode((PCHAR)Base64Buff, (PUCHAR)RetBuffer, Retsize);
+    if ( Success && Base64Buff && Base64Size ) {
+        Retsize   = B64Size( A_PTR( Base64Buff ) );
+        RetBuffer = hAlloc( Retsize );
+        if ( RetBuffer ) {
+            B64Dec( A_PTR( Base64Buff ), A_PTR( RetBuffer ), Retsize );
             if (Response && Size) {
-                UCHAR* DecBuff = (UCHAR*)((UPTR)(RetBuffer) + EncryptOffset);
+                CHAR*  DecBuff = A_PTR( U_PTR( RetBuffer ) + EncryptOffset );
                 ULONG  DecLen  = Retsize - EncryptOffset;
-                Self->Crp->Decrypt(DecBuff, DecLen);
-                *Response = RetBuffer;
-                *Size     = Retsize;
+                Self->Crp->Decrypt( B_PTR( DecBuff ), DecLen );
+                *Response = RetBuffer; *Size = Retsize;
             } else {
-                hFree(RetBuffer);
+                hFree( RetBuffer );
             }
         }
-        if (Base64Buff) hFree(Base64Buff);
+        if ( Base64Buff ) hFree( Base64Buff );
     }
 
     return Success;
@@ -475,7 +423,7 @@ auto DECLFN Package::Pad(
 ) -> VOID {
     Package->Buffer = A_PTR( hReAlloc(
         Package->Buffer,
-        Package->Length + Size
+        ( Package->Length + Size )
     ));
 
     Mem::Copy( PTR( U_PTR( Package->Buffer ) + ( Package->Length ) ), PTR( Data ), Size );
@@ -591,7 +539,6 @@ _KH_END:
 
     return result;   
 }
-
 
 auto DECLFN Package::SendMsg(
     _In_ CHAR* UUID,

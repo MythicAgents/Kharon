@@ -486,7 +486,6 @@ auto DECLFN Task::PostEx(
     return CleanupAndReturn( ERROR_SUCCESS );
 }
 
-
 auto DECLFN Task::FileSystem(
     _In_ JOBS* Job
 ) -> ERROR_CODE {
@@ -901,6 +900,12 @@ auto DECLFN Task::Token(
     }
 
     return KhGetError;
+}
+
+auto DECLFN Task::Socks(
+    _In_ JOBS* Job
+) -> ERROR_CODE {
+    return 0;
 }
 
 auto DECLFN Task::Process(

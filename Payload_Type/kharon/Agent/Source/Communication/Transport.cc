@@ -8,10 +8,10 @@ auto DECLFN Transport::Checkin(
     
     KhDbg( "start checkin routine" );
 
-    PVOID  Data    = NULL;
+    PVOID  Data    = nullptr;
     SIZE_T Length  = 0;
-    PCHAR  NewUUID = NULL;
-    PCHAR  OldUUID = NULL;
+    PCHAR  NewUUID = nullptr;
+    PCHAR  OldUUID = nullptr;
     ULONG  UUIDsz  = 36;
 
     //

@@ -2,6 +2,7 @@
 #define KHARON_H
 
 #include <windows.h>
+#include <winnt.h>
 #include <ntstatus.h>
 #include <guiddef.h>
 #include <winsock.h>
@@ -54,7 +55,7 @@ EXTERN_C UPTR EndPtr();
 #define KH_CHUNK_SIZE 512000 // 512 KB
 
 #ifndef KH_AGENT_UUID
-#define KH_AGENT_UUID ""
+#define KH_AGENT_UUID "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 #endif // KH_AGENT_UUID
 
 #ifndef KH_SLEEP_TIME
@@ -147,7 +148,7 @@ EXTERN_C UPTR EndPtr();
 #endif // WEB_ENDPOINT_QUANTITY
 
 #ifndef WEB_USER_AGENT
-#define WEB_USER_AGENT L""
+#define WEB_USER_AGENT L"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"
 #endif // WEB_USER_AGENT
 
 #ifndef WEB_HTTP_HEADERS
@@ -155,7 +156,7 @@ EXTERN_C UPTR EndPtr();
 #endif // WEB_HTTP_HEADERS
 
 #ifndef WEB_SECURE_ENABLED
-#define WEB_SECURE_ENABLED TRUE
+#define WEB_SECURE_ENABLED FALSE
 #endif // WEB_SECURE_ENABLED
 
 #ifndef WEB_HTTP_COOKIES_QTT

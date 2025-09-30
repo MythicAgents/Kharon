@@ -182,7 +182,6 @@ auto DECLFN Process::Create(
     }
 
 _KH_END:
-    // Cleanup
     if ( AttrBuff  ) { 
         Self->Krnl32.DeleteProcThreadAttributeList( AttrBuff );
         hFree( AttrBuff ); 
@@ -191,7 +190,6 @@ _KH_END:
     if ( PipeRead  ) Self->Ntdll.NtClose( PipeRead );
     if ( PsHandle  ) Self->Ntdll.NtClose( PsHandle );
     
-    // Não fecha os handles do processo criado aqui - quem chamou a função é responsável
     // if ( PsInfo->hProcess ) Self->Ntdll.NtClose( PsInfo->hProcess );
     // if ( PsInfo->hThread  ) Self->Ntdll.NtClose( PsInfo->hThread  );
 

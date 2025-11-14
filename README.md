@@ -2,6 +2,9 @@
 
 ![khimg](Payload_Type/kharon/Assets/kharon-1.png)
 
+# Warning
+the agent is in maintenance and will have its official release on 12/2025 or 01/2026
+
 C2 Agent for Mythic with advanced evasion capabilities, supporting dotnet/powershell/shellcode/BOF memory execution, lateral movement, pivoting, and more. Kharon is a fully Position-Independent Code (PIC) shellcode. 
 
 # Author links

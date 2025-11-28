@@ -1,5 +1,5 @@
 # Warning
-the agent is in maintenance and will have its official release on 12/2025 or 01/2026
+agent migrated to work for AdaptixC2: https://github.com/Adaptix-Framework/Kharon-Agent
 
 # Kharon Agent 
 

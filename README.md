@@ -1,5 +1,5 @@
 # Warning
-agent migrated to work for AdaptixC2: https://github.com/entropy-z/Kharon-Agent/
+agent migrated to work for AdaptixC2: https://github.com/entropy-z/Kharon/
 
 # Kharon Agent 
 

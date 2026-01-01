@@ -211,6 +211,8 @@ auto DECLFN Kharon::Init(
 
     /* ========= [ informations collection ] ========= */
     CHAR   cProcessorName[MAX_PATH] = { 0 };
+    CHAR   cProductType[MAX_PATH]   = { 0 };
+    CHAR   cBuildNum[32]            = { 0 };
 
     BOOL   IsWow64      = FALSE;
     ULONG  TmpVal       = 0;
@@ -219,8 +221,15 @@ auto DECLFN Kharon::Init(
     BOOL   Success      = FALSE;
     HKEY   KeyHandle    = nullptr;
 
-    ULONG  ProcBufferSize    = sizeof( cProcessorName );
+    DWORD dwType = 0;
+    DWORD dwData = 0;
+    DWORD dwSize = sizeof( dwData );
+
+    ULONG  ProcBufferSize        = sizeof( cProcessorName );
     PCHAR  cProcessorNameReg = "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0";
+    ULONG  ProductTypeBufferSize = sizeof( cProductType );
+    PCHAR  cCurrVerReg = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+    ULONG  BuildNumberSize       = sizeof( cBuildNum );
 
     SYSTEM_INFO     SysInfo   = { 0 };
     MEMORYSTATUSEX  MemInfoEx = { 0 };
@@ -317,7 +326,47 @@ auto DECLFN Kharon::Init(
 
     this->Machine.ProcessorName = (PCHAR)this->Hp->Alloc( ProcBufferSize );
     Mem::Copy( this->Machine.ProcessorName, cProcessorName, ProcBufferSize );
-    
+
+    if (KeyHandle) this->Advapi32.RegCloseKey( KeyHandle );
+
+    this->Advapi32.RegOpenKeyExA(
+        HKEY_LOCAL_MACHINE, cCurrVerReg,
+        0, KEY_READ, &KeyHandle
+    );
+
+    this->Advapi32.RegQueryValueExA(
+        KeyHandle, "CurrentMajorVersionNumber", nullptr, &dwType,
+        reinterpret_cast<LPBYTE>(&dwData), &dwSize
+    );
+
+    this->Machine.OsMjrV = static_cast<ULONG>(dwData);
+
+    dwSize = sizeof( dwData );
+    this->Advapi32.RegQueryValueExA(
+        KeyHandle, "CurrentMinorVersionNumber", nullptr, &dwType,
+        reinterpret_cast<LPBYTE>(&dwData), &dwSize
+    );
+
+    this->Machine.OsMnrV = static_cast<ULONG>(dwData);
+
+    this->Advapi32.RegQueryValueExA(
+        KeyHandle, "CurrentBuildNumber", nullptr, nullptr,
+        B_PTR( cBuildNum ), &BuildNumberSize
+    );
+
+    this->Machine.OsBuild = (PCHAR)this->Hp->Alloc( BuildNumberSize );
+    Mem::Copy( this->Machine.OsBuild, cBuildNum, BuildNumberSize );
+
+    this->Advapi32.RegQueryValueExA(
+        KeyHandle, "ProductName", nullptr, nullptr,
+        B_PTR( cProductType ), &ProductTypeBufferSize
+    );
+
+    this->Machine.ProductType = (PCHAR)this->Hp->Alloc( ProductTypeBufferSize );
+    Mem::Copy( this->Machine.ProductType, cProductType, ProductTypeBufferSize );
+
+    if ( KeyHandle ) this->Advapi32.RegCloseKey( KeyHandle );
+
     this->Mk->Ctx.NtContinueGadget = ( LdrLoad::_Api( this->Ntdll.Handle, Hsh::Str( "LdrInitializeThunk" ) ) + 19 );
     this->Mk->Ctx.JmpGadget        = this->Usf->FindGadget( this->Ntdll.Handle, 0x23 );
 

